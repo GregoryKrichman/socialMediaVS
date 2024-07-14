@@ -47,14 +47,14 @@ namespace socialMedia.Controllers
                 return BadRequest(ModelState);
             }
 
-            // Validate FollowerUserId
+            
             var followerUser = await _userRepository.GetById(relationship.FollowerUserId);
             if (followerUser == null)
             {
                 return BadRequest("Invalid Follower User ID");
             }
 
-            // Validate FollowedUserId
+            
             var followedUser = await _userRepository.GetById(relationship.FollowedUserId);
             if (followedUser == null)
             {

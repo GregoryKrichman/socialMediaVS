@@ -22,7 +22,7 @@ public class DefaultUserSeeder
             {
                 Username = "admin",
                 Email = "admin@example.com",
-                Password = "AdminPassword123!", // In a real app, hash the password
+                Password = "AdminPassword123!", 
                 Name = "Admin User",
                 
             };
@@ -36,7 +36,7 @@ public class DefaultUserSeeder
             {
                 Username = "guest1",
                 Email = "guest1@example.com",
-                Password = "GuestPassword123!", // In a real app, hash the password
+                Password = "GuestPassword123!", 
                 Name = "Guest User 1",
                 
             };
@@ -50,7 +50,7 @@ public class DefaultUserSeeder
             {
                 Username = "guest2",
                 Email = "guest2@example.com",
-                Password = "GuestPassword123!", // In a real app, hash the password
+                Password = "GuestPassword123!", 
                 Name = "Guest User 2",
                
             };

@@ -9,7 +9,7 @@ namespace socialMedia.Repositories
     {
         Task AddAsync(T entity);
         Task SaveAsync();
-        Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate); // Change return type to IEnumerable<T>
+        Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate); 
         Task<IEnumerable<T>> GetAll();
         Task<T> GetById(int id);
         Task<T> FirstOrDefaultAsync(Func<T, bool> predicate);
@@ -19,6 +19,7 @@ namespace socialMedia.Repositories
         Task Delete(int id);
         Task Delete(int key1, int key2);
     }
+
 
     public interface ICompositeKeyRepository<T> : IRepository<T>
     {

@@ -22,7 +22,7 @@ namespace socialMedia.Repositories
         public async Task AddAsync(Comment entity)
         {
             await _dbSet.AddAsync(entity);
-            await _context.SaveChangesAsync(); // Ensure changes are saved to get the correct ID
+            await _context.SaveChangesAsync(); 
         }
 
         public async Task SaveAsync()
@@ -53,7 +53,7 @@ namespace socialMedia.Repositories
         public async Task Add(Comment entity)
         {
             await _dbSet.AddAsync(entity);
-            await _context.SaveChangesAsync(); // Ensure changes are saved to get the correct ID
+            await _context.SaveChangesAsync(); 
         }
 
         public async Task Update(Comment entity)

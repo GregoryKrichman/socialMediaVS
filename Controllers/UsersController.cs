@@ -92,7 +92,7 @@ namespace socialMedia.Controllers
                 return NotFound("User not found");
             }
 
-            // Check and log the incoming data
+            
             _logger.LogInformation("UpdateUserDto received: {Dto}", updateUserDto);
 
             bool hasChanges = false;

@@ -36,10 +36,10 @@ Update the appsettings.json file with your MySQL database connection string:
 
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=social;User=root;Password=yourpassword;"
+    "DefaultConnection": "Server=localhost;Database=social;User=root;Password=29071991;"
   },
   "Jwt": {
-    "Key": "your_jwt_secret_key",
+    "Key": "94df5f05e33949299d7a9ba6cc6bf554",
     "Issuer": "SocialMediaApp"
   },
   "Logging": {
@@ -50,6 +50,7 @@ Update the appsettings.json file with your MySQL database connection string:
   },
   "AllowedHosts": "*"
 }
+
 Run the migrations to set up the database:
 
 

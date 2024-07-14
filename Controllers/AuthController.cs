@@ -8,7 +8,6 @@ using System.Text;
 
 namespace socialMedia.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {

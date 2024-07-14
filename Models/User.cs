@@ -1,22 +1,51 @@
-﻿using Microsoft.Extensions.Hosting;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace socialMedia.Models
 {
     public class User
     {
         public int Id { get; set; }
-        public string Username { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string ProfilePic { get; set; } = string.Empty;
-        public string CoverPic { get; set; } = string.Empty;
-        public string City { get; set; } = string.Empty;
-        public string Website { get; set; } = string.Empty;
-        public ICollection<Post> Posts { get; set; } = new List<Post>();
-        public ICollection<Relationship> Followers { get; set; } = new List<Relationship>();
-        public ICollection<Relationship> Followings { get; set; } = new List<Relationship>();
-        public ICollection<Story> Stories { get; set; } = new List<Story>();
+
+        [Required]
+        [MaxLength(45)]
+        public string? Username { get; set; }
+
+        [Required]
+        [MaxLength(45)]
+        public string? Email { get; set; }
+
+        [Required]
+        [MaxLength(200)]
+        public string? Password { get; set; }
+
+        [Required]
+        [MaxLength(45)]
+        public string? Name { get; set; }
+
+        [MaxLength(500)]
+        public string? CoverPic { get; set; }
+
+        [MaxLength(500)]
+        public string? ProfilePic { get; set; }
+
+        [MaxLength(45)]
+        public string? City { get; set; }
+
+        [MaxLength(255)]
+        public string? Website { get; set; }
+
+        [JsonIgnore]
+        public ICollection<Post?> Posts { get; set; }
+
+        [JsonIgnore]
+        public ICollection<Story?> Stories { get; set; }
+
+        [JsonIgnore]
+        public ICollection<Relationship?> Following { get; set; }
+
+        [JsonIgnore]
+        public ICollection<Relationship?> Followers { get; set; }
     }
 }

@@ -1,15 +1,28 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace socialMedia.Models
 {
     public class Comment
     {
         public int Id { get; set; }
-        public string Desc { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
+
+        [MaxLength(200)]
+        public string? Desc { get; set; }
+
+        public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Required]
         public int UserId { get; set; }
-        public User User { get; set; } = null!;
+
+        [Required]
         public int PostId { get; set; }
-        public Post Post { get; set; } = null!;
+
+        [JsonIgnore]
+        public User? User { get; set; }
+
+        [JsonIgnore]
+        public Post? Post { get; set; }
     }
 }

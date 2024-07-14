@@ -1,89 +1,96 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using socialMedia.Data;
+﻿using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using socialMedia.Models;
+using socialMedia.Repositories;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+using System;
 
 namespace socialMedia.Controllers
 {
-    [Authorize]
-    [ApiController]
     [Route("api/[controller]")]
+    [ApiController]
     public class StoriesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IRepository<Story> _repository;
+        private readonly IWebHostEnvironment _env;
 
-        public StoriesController(AppDbContext context)
+        public StoriesController(IRepository<Story> repository, IWebHostEnvironment env)
         {
-            _context = context;
+            _repository = repository;
+            _env = env;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Story>>> GetStories()
         {
-            return await _context.Stories.Include(s => s.User).ToListAsync();
+            return Ok(await _repository.GetAll());
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Story>> AddStory([FromForm] IFormFile file, [FromForm] int userId)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
+
+            var uploadsFolderPath = Path.Combine(_env.WebRootPath, "uploads");
+            if (!Directory.Exists(uploadsFolderPath))
+            {
+                Directory.CreateDirectory(uploadsFolderPath);
+            }
+
+            var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+            var filePath = Path.Combine(uploadsFolderPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var story = new Story
+            {
+                Img = fileName,
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _repository.Add(story);
+            return CreatedAtAction(nameof(GetStory), new { id = story.Id }, story);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Story>> GetStory(int id)
         {
-            var story = await _context.Stories.Include(s => s.User).FirstOrDefaultAsync(s => s.Id == id);
+            var story = await _repository.GetById(id);
             if (story == null)
             {
                 return NotFound();
             }
-            return story;
-        }
-
-        [HttpPost]
-        public async Task<ActionResult<Story>> CreateStory(Story story)
-        {
-            _context.Stories.Add(story);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetStory), new { id = story.Id }, story);
+            return Ok(story);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateStory(int id, Story story)
+        public async Task<IActionResult> UpdateStory(int id, [FromBody] Story story)
         {
             if (id != story.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(story).State = EntityState.Modified;
-
-            try
+            if (!ModelState.IsValid)
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.Stories.Any(e => e.Id == id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                return BadRequest(ModelState);
             }
 
+            await _repository.Update(story);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteStory(int id)
         {
-            var story = await _context.Stories.FindAsync(id);
-            if (story == null)
-            {
-                return NotFound();
-            }
-
-            _context.Stories.Remove(story);
-            await _context.SaveChangesAsync();
-
+            await _repository.Delete(id);
             return NoContent();
         }
     }

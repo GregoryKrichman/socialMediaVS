@@ -1,50 +1,69 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using socialMedia.Data;
+﻿using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using socialMedia.Models;
+using socialMedia.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace socialMedia.Controllers
 {
-    [Authorize]
-    [ApiController]
     [Route("api/[controller]")]
+    [ApiController]
     public class LikesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ICompositeKeyRepository<Like> _repository;
+        private readonly IRepository<User> _userRepository;
+        private readonly IRepository<Post> _postRepository;
+        private readonly ILogger<LikesController> _logger;
 
-        public LikesController(AppDbContext context)
+        public LikesController(ICompositeKeyRepository<Like> repository, IRepository<User> userRepository, IRepository<Post> postRepository, ILogger<LikesController> logger)
         {
-            _context = context;
+            _repository = repository;
+            _userRepository = userRepository;
+            _postRepository = postRepository;
+            _logger = logger;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Like>>> GetLikes()
+        public async Task<ActionResult<IEnumerable<Like>>> GetLikes([FromQuery] int postId)
         {
-            return await _context.Likes.Include(l => l.User).Include(l => l.Post).ToListAsync();
+            var likes = await _repository.GetAll();
+            return Ok(likes.Where(l => l.PostId == postId).ToList());
         }
 
-        [HttpPost]
-        public async Task<ActionResult<Like>> AddLike(Like like)
+        [HttpPost("toggle")]
+        public async Task<ActionResult> ToggleLike([FromBody] Like like)
         {
-            _context.Likes.Add(like);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetLikes), new { userId = like.UserId, postId = like.PostId }, like);
-        }
-
-        [HttpDelete]
-        public async Task<IActionResult> RemoveLike([FromQuery] int userId, [FromQuery] int postId)
-        {
-            var like = await _context.Likes.FindAsync(userId, postId);
-            if (like == null)
+            if (!ModelState.IsValid)
             {
-                return NotFound();
+                return BadRequest(ModelState);
             }
 
-            _context.Likes.Remove(like);
-            await _context.SaveChangesAsync();
+            var user = await _userRepository.GetById(like.UserId);
+            var post = await _postRepository.GetById(like.PostId);
 
-            return NoContent();
+            if (user == null || post == null)
+            {
+                return BadRequest("User or Post not found");
+            }
+
+            var existingLike = await _repository.FirstOrDefaultAsync(l => l.UserId == like.UserId && l.PostId == like.PostId);
+            if (existingLike != null)
+            {
+                await _repository.Delete(existingLike.UserId, existingLike.PostId);
+                await _repository.SaveAsync();
+                return Ok(new { liked = false });
+            }
+            else
+            {
+                like.User = user;
+                like.Post = post;
+
+                await _repository.Add(like);
+                await _repository.SaveAsync();
+                return Ok(new { liked = true });
+            }
         }
     }
 }

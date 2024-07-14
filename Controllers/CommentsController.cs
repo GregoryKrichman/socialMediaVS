@@ -1,73 +1,74 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using socialMedia.Data;
+﻿using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using socialMedia.Models;
+using socialMedia.Repositories;
+using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace socialMedia.Controllers
 {
-    [Authorize]
-    [ApiController]
     [Route("api/[controller]")]
+    [ApiController]
     public class CommentsController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IRepository<Comment> _repository;
+        private readonly ILogger<CommentsController> _logger;
 
-        public CommentsController(AppDbContext context)
+        public CommentsController(IRepository<Comment> repository, ILogger<CommentsController> logger)
         {
-            _context = context;
+            _repository = repository;
+            _logger = logger;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Comment>>> GetComments()
+        public async Task<ActionResult<IEnumerable<Comment>>> GetComments([FromQuery] int postId)
         {
-            return await _context.Comments.Include(c => c.User).Include(c => c.Post).ToListAsync();
+            var comments = await _repository.FindAsync(c => c.PostId == postId);
+            var orderedComments = comments.OrderByDescending(c => c.CreatedAt).ToList();
+            return Ok(orderedComments);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Comment>> GetComment(int id)
         {
-            var comment = await _context.Comments.Include(c => c.User).Include(c => c.Post).FirstOrDefaultAsync(c => c.Id == id);
+            var comment = await _repository.GetById(id);
             if (comment == null)
             {
                 return NotFound();
             }
-            return comment;
+            return Ok(comment);
         }
 
         [HttpPost]
-        public async Task<ActionResult<Comment>> CreateComment(Comment comment)
+        public async Task<ActionResult<Comment>> AddComment([FromBody] Comment comment)
         {
-            _context.Comments.Add(comment);
-            await _context.SaveChangesAsync();
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            await _repository.Add(comment);
+            await _repository.SaveAsync();
+
             return CreatedAtAction(nameof(GetComment), new { id = comment.Id }, comment);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateComment(int id, Comment comment)
+        public async Task<IActionResult> UpdateComment(int id, [FromBody] Comment comment)
         {
             if (id != comment.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(comment).State = EntityState.Modified;
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.Comments.Any(e => e.Id == id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            await _repository.Update(comment);
+            await _repository.SaveAsync();
 
             return NoContent();
         }
@@ -75,14 +76,15 @@ namespace socialMedia.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteComment(int id)
         {
-            var comment = await _context.Comments.FindAsync(id);
-            if (comment == null)
+            var existingComment = await _repository.GetById(id);
+            if (existingComment == null)
             {
+                _logger.LogWarning("Comment with id {CommentId} not found", id);
                 return NotFound();
             }
 
-            _context.Comments.Remove(comment);
-            await _context.SaveChangesAsync();
+            await _repository.Delete(id);
+            await _repository.SaveAsync();
 
             return NoContent();
         }

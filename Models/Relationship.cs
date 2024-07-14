@@ -1,10 +1,22 @@
-﻿namespace socialMedia.Models
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
+namespace socialMedia.Models
 {
     public class Relationship
     {
+        public int Id { get; set; }
+
+        [Required]
         public int FollowerUserId { get; set; }
-        public User Follower { get; set; } = null!;
+
+        [Required]
         public int FollowedUserId { get; set; }
-        public User Followed { get; set; } = null!;
+
+        [JsonIgnore]
+        public User? FollowerUser { get; set; }
+
+        [JsonIgnore]
+        public User? FollowedUser { get; set; }
     }
 }

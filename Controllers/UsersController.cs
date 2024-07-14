@@ -1,56 +1,186 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using socialMedia.Data;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using socialMedia.Models;
+using socialMedia.Repositories;
+using socialMedia.Dtos;
+using System.IO;
+using Microsoft.AspNetCore.Hosting;
 
-[Route("api/[controller]")]
-[ApiController]
-public class UsersController : ControllerBase
+namespace socialMedia.Controllers
 {
-    private readonly AppDbContext _context;
-
-    public UsersController(AppDbContext context)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class UsersController : ControllerBase
     {
-        _context = context;
-    }
+        private readonly IRepository<User> _repository;
+        private readonly IWebHostEnvironment _env;
+        private readonly ILogger<UsersController> _logger;
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<User>> GetUser(int id)
-    {
-        var user = await _context.Users.FindAsync(id);
-        if (user == null)
+        public UsersController(IRepository<User> repository, IWebHostEnvironment env, ILogger<UsersController> logger)
         {
-            return NotFound();
-        }
-        return user;
-    }
-
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateUser(int id, User user)
-    {
-        if (id != user.Id)
-        {
-            return BadRequest();
+            _repository = repository;
+            _env = env;
+            _logger = logger;
         }
 
-        _context.Entry(user).State = EntityState.Modified;
-
-        try
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
-            await _context.SaveChangesAsync();
+            return Ok(await _repository.GetAll());
         }
-        catch (DbUpdateConcurrencyException)
+
+        [HttpGet("find/{id}")]
+        public async Task<ActionResult<User>> GetUserById(int id)
         {
-            if (!_context.Users.Any(e => e.Id == id))
+            _logger.LogInformation("Received request to get user by ID: {Id}", id);
+
+            if (id <= 0)
             {
+                _logger.LogWarning("Invalid user ID: {Id}", id);
+                return BadRequest("Invalid user ID");
+            }
+
+            var user = await _repository.GetById(id);
+            if (user == null)
+            {
+                _logger.LogWarning("User not found for ID: {Id}", id);
                 return NotFound();
             }
-            else
+
+            if (!string.IsNullOrEmpty(user.ProfilePic))
             {
-                throw;
+                user.ProfilePic = $"{Request.Scheme}://{Request.Host}/uploads/{user.ProfilePic}";
             }
+
+            if (!string.IsNullOrEmpty(user.CoverPic))
+            {
+                user.CoverPic = $"{Request.Scheme}://{Request.Host}/uploads/{user.CoverPic}";
+            }
+
+            _logger.LogInformation("User found: {User}", user);
+            return Ok(user);
         }
 
-        return NoContent();
+        [HttpPost]
+        public async Task<ActionResult<User>> AddUser([FromBody] User user)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            await _repository.Add(user);
+            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUser(int id, [FromForm] UpdateUserDto updateUserDto)
+        {
+            _logger.LogInformation("Received request to update user with ID: {Id}", id);
+
+            if (id <= 0)
+            {
+                _logger.LogWarning("Invalid user ID: {Id}", id);
+                return BadRequest("Invalid user ID");
+            }
+
+            var user = await _repository.GetById(id);
+            if (user == null)
+            {
+                _logger.LogWarning("User not found for ID: {Id}", id);
+                return NotFound("User not found");
+            }
+
+            // Check and log the incoming data
+            _logger.LogInformation("UpdateUserDto received: {Dto}", updateUserDto);
+
+            bool hasChanges = false;
+
+            if (!string.IsNullOrEmpty(updateUserDto.Name) && updateUserDto.Name != user.Name)
+            {
+                user.Name = updateUserDto.Name;
+                hasChanges = true;
+            }
+
+            if (!string.IsNullOrEmpty(updateUserDto.City) && updateUserDto.City != user.City)
+            {
+                user.City = updateUserDto.City;
+                hasChanges = true;
+            }
+
+            if (!string.IsNullOrEmpty(updateUserDto.Website) && updateUserDto.Website != user.Website)
+            {
+                user.Website = updateUserDto.Website;
+                hasChanges = true;
+            }
+
+            if (updateUserDto.ProfilePic != null)
+            {
+                var profilePicPath = await SaveFileAsync(updateUserDto.ProfilePic);
+                user.ProfilePic = profilePicPath;
+                hasChanges = true;
+            }
+
+            if (updateUserDto.CoverPic != null)
+            {
+                var coverPicPath = await SaveFileAsync(updateUserDto.CoverPic);
+                user.CoverPic = coverPicPath;
+                hasChanges = true;
+            }
+
+            if (!hasChanges)
+            {
+                return BadRequest("No changes made");
+            }
+
+            await _repository.Update(user);
+            _logger.LogInformation("User with ID: {Id} updated successfully", id);
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            await _repository.Delete(id);
+            return NoContent();
+        }
+
+        [HttpGet("suggestions")]
+        public async Task<ActionResult<IEnumerable<User>>> GetSuggestions()
+        {
+            return Ok(await _repository.GetAll());
+        }
+
+        [HttpGet("onlineFriends")]
+        public async Task<ActionResult<IEnumerable<User>>> GetOnlineFriends()
+        {
+            return Ok(await _repository.GetAll());
+        }
+
+        [HttpGet("latestActivities")]
+        public async Task<ActionResult<IEnumerable<User>>> GetLatestActivities()
+        {
+            return Ok(await _repository.GetAll());
+        }
+
+        private async Task<string> SaveFileAsync(IFormFile file)
+        {
+            var uploadsFolderPath = Path.Combine(_env.WebRootPath, "uploads");
+            if (!Directory.Exists(uploadsFolderPath))
+            {
+                Directory.CreateDirectory(uploadsFolderPath);
+            }
+
+            var fileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+            var filePath = Path.Combine(uploadsFolderPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            return fileName;
+        }
     }
 }

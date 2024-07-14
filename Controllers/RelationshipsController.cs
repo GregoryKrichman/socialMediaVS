@@ -1,49 +1,88 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using socialMedia.Data;
+﻿using Microsoft.AspNetCore.Mvc;
 using socialMedia.Models;
+using socialMedia.Repositories;
+using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace socialMedia.Controllers
 {
-    [Authorize]
-    [ApiController]
     [Route("api/[controller]")]
+    [ApiController]
     public class RelationshipsController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IRepository<Relationship> _repository;
+        private readonly IRepository<User> _userRepository;
+        private readonly ILogger<RelationshipsController> _logger;
 
-        public RelationshipsController(AppDbContext context)
+        public RelationshipsController(IRepository<Relationship> repository, IRepository<User> userRepository, ILogger<RelationshipsController> logger)
         {
-            _context = context;
+            _repository = repository;
+            _userRepository = userRepository;
+            _logger = logger;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Relationship>>> GetRelationships()
         {
-            return await _context.Relationships.Include(r => r.Follower).Include(r => r.Followed).ToListAsync();
+            return Ok(await _repository.GetAll());
         }
 
-        [HttpPost]
-        public async Task<ActionResult<Relationship>> AddRelationship(Relationship relationship)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Relationship>> GetRelationship(int id)
         {
-            _context.Relationships.Add(relationship);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetRelationships), new { followerUserId = relationship.FollowerUserId, followedUserId = relationship.FollowedUserId }, relationship);
-        }
-
-        [HttpDelete]
-        public async Task<IActionResult> RemoveRelationship([FromQuery] int followerUserId, [FromQuery] int followedUserId)
-        {
-            var relationship = await _context.Relationships.FindAsync(followerUserId, followedUserId);
+            var relationship = await _repository.GetById(id);
             if (relationship == null)
             {
                 return NotFound();
             }
+            return Ok(relationship);
+        }
 
-            _context.Relationships.Remove(relationship);
-            await _context.SaveChangesAsync();
+        [HttpPost]
+        public async Task<ActionResult<Relationship>> AddRelationship([FromBody] Relationship relationship)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
+            // Validate FollowerUserId
+            var followerUser = await _userRepository.GetById(relationship.FollowerUserId);
+            if (followerUser == null)
+            {
+                return BadRequest("Invalid Follower User ID");
+            }
+
+            // Validate FollowedUserId
+            var followedUser = await _userRepository.GetById(relationship.FollowedUserId);
+            if (followedUser == null)
+            {
+                return BadRequest("Invalid Followed User ID");
+            }
+
+            _logger.LogInformation("Follower User: {User}", followerUser);
+            _logger.LogInformation("Followed User: {User}", followedUser);
+
+            await _repository.Add(relationship);
+            await _repository.SaveAsync();
+            return CreatedAtAction(nameof(GetRelationship), new { id = relationship.Id }, relationship);
+        }
+
+        [HttpDelete]
+        public async Task<IActionResult> DeleteRelationship([FromBody] Relationship relationship)
+        {
+            var existingRelationship = await _repository.FirstOrDefaultAsync(r =>
+                r.FollowerUserId == relationship.FollowerUserId &&
+                r.FollowedUserId == relationship.FollowedUserId);
+
+            if (existingRelationship == null)
+            {
+                return NotFound();
+            }
+
+            await _repository.Delete(existingRelationship.Id);
+            await _repository.SaveAsync();
             return NoContent();
         }
     }

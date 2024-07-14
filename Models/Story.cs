@@ -1,13 +1,22 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace socialMedia.Models
 {
     public class Story
     {
         public int Id { get; set; }
-        public string Img { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
+
+        [MaxLength(300)]
+        public string? Img { get; set; }
+
+        [Required]
         public int UserId { get; set; }
-        public User User { get; set; } = null!;
+
+        public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [JsonIgnore]
+        public User? User { get; set; }
     }
 }

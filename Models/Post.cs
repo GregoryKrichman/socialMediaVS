@@ -1,17 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace socialMedia.Models
 {
     public class Post
     {
         public int Id { get; set; }
-        public string Desc { get; set; } = string.Empty;
-        public string Img { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
+
+        [MaxLength(200)]
+        public string? Desc { get; set; }
+
+        [MaxLength(200)]
+        public string? Img { get; set; }
+
         public int UserId { get; set; }
-        public User User { get; set; } = null!;
-        public ICollection<Comment> Comments { get; set; } = new List<Comment>();
-        public ICollection<Like> Likes { get; set; } = new List<Like>();
+
+        public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public string? Content { get; set; }
+
+        [JsonIgnore]
+        public User? User { get; set; }
     }
 }
